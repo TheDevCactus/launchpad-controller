@@ -36,10 +36,10 @@ impl Midi {
     ) -> Result<Self, ()> {
         let midi_in = MidiInput::new(client_name);
         let midi_out = MidiOutput::new(client_name);
-        if let Err(e) = midi_in {
+        if let Err(_e) = midi_in {
             return Err(());
         }
-        if let Err(e) = midi_out {
+        if let Err(_e) = midi_out {
             return Err(());
         }
 
@@ -91,13 +91,13 @@ impl Midi {
             },
             (),
         );
-        if let Err(e) = input_connection_result {
+        if let Err(_e) = input_connection_result {
             return Err(());
         }
         let input_connection = input_connection_result.unwrap();
 
         let output_connection_result = midi_out.connect(output_port, output_port_name);
-        if let Err(e) = output_connection_result {
+        if let Err(_e) = output_connection_result {
             return Err(());
         }
         let output_connection = output_connection_result.unwrap();

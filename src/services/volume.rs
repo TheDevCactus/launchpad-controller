@@ -21,13 +21,13 @@ pub fn get_current_volume() -> (u8, u8) {
     left = left.trim_start_matches("[");
     right = right.trim_start_matches("[");
     let parse_result = left.parse::<u8>();
-    if let Err(e) = parse_result {
+    if let Err(_e) = parse_result {
         return (0, 0);
     }
     let left = parse_result.unwrap();
 
     let parse_result = right.parse::<u8>();
-    if let Err(e) = parse_result {
+    if let Err(_e) = parse_result {
         return (0, 0);
     }
     let right = parse_result.unwrap();

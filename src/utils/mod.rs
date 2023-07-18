@@ -1,4 +1,4 @@
-pub fn coord_to_note(x_dimen: u8, y_dimen: u8, x: u8, y: u8) -> u8 {
+pub fn coord_to_note(x_dimen: u8, _y_dimen: u8, x: u8, y: u8) -> u8 {
     let mut out = 0x0b;
     out += x;
 
@@ -13,7 +13,7 @@ pub fn coord_to_note(x_dimen: u8, y_dimen: u8, x: u8, y: u8) -> u8 {
     return out;
 }
 
-pub fn note_to_coord(note: u8, x_dimen: usize, y_dimen: usize) -> (u8, u8) {
+pub fn note_to_coord(note: u8, x_dimen: usize, _y_dimen: usize) -> (u8, u8) {
     let mut base_note = note - 0x0b;
     let mut cols = 0;
     while base_note > x_dimen as u8 {

@@ -26,23 +26,23 @@ pub fn get_play_state() -> PlayState {
 }
 
 pub fn toggle_play_state() {
-    let res = Command::new("playerctl")
+    let _res = Command::new("playerctl")
         .args(["-a", "play-pause"])
         .output();
 }
 
 pub fn pause() {
-    let res = Command::new("playerctl").args(["-a", "pause"]).output();
+    let _res = Command::new("playerctl").args(["-a", "pause"]).output();
 }
 
 pub fn play() {
-    let res = Command::new("playerctl").args(["-a", "play"]).output();
+    let _res = Command::new("playerctl").args(["-a", "play"]).output();
 }
 
 pub fn next() {
-    let res = Command::new("playerctl").args(["-a", "next"]).output();
+    let _res = Command::new("playerctl").args(["-a", "next"]).output();
 }
 
 pub fn previous() {
-    let res = Command::new("playerctl").args(["-a", "previous"]).output();
+    let _res = Command::new("playerctl").args(["-a", "previous"]).output();
 }

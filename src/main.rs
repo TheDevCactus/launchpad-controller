@@ -99,7 +99,7 @@ fn handle_message(message: MidiIncomingMessage) -> Result<(), HandleMessageError
     return handle_result;
 }
 
-pub fn paint(midi: &mut Midi, delta_t: u128) {
+pub fn paint(midi: &mut Midi, _delta_t: u128) {
     let (left, right) = get_current_volume();
     for y in 0..8 {
         let r_val = left / 10;
