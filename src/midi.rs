@@ -13,7 +13,7 @@ pub const NOTE_ON: u8 = 0b10010000;
 #[derive(Debug)]
 pub enum MidiControlMessage {
     LED_ON(u8, u8),
-    LED_OFF(u8, u8),
+    LED_OFF(u8),
 }
 
 pub struct MidiIncomingMessage {
@@ -81,6 +81,9 @@ impl Midi {
             input_port,
             input_port_name,
             move |stamp, msg, _| {
+                #[cfg(debug_assertions)]
+                println!("----\nReceived Message\nSection: {:?}\nNote/Button: {:?}\nVelocity: {:?}\n----", msg[0], msg[1], msg[2]);
+
                 channel.0.send(MidiIncomingMessage {
                     time: stamp,
                     data: [msg[0], msg[1], msg[2]],
@@ -107,12 +110,11 @@ impl Midi {
     }
 
     pub fn send(&mut self, msg: MidiControlMessage) {
-        // println!("SENDING: {:?}", msg);
         match msg {
             MidiControlMessage::LED_ON(note, vel) => {
-                let _ = self.out_connection.send(&[NOTE_ON, note, 100]);
+                let _ = self.out_connection.send(&[NOTE_ON, note, vel]);
             }
-            MidiControlMessage::LED_OFF(note, vel) => {
+            MidiControlMessage::LED_OFF(note) => {
                 let _ = self.out_connection.send(&[NOTE_ON, note, 0]);
             }
             _ => {

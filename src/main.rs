@@ -1,151 +1,122 @@
-use crate::midi::{Midi, MidiControlMessage, CLIENT_NAME, IN_PORT_NAME, MIDI_NAME, OUT_PORT_NAME};
+use crate::{
+    midi::{Midi, MidiControlMessage, CLIENT_NAME, IN_PORT_NAME, MIDI_NAME, OUT_PORT_NAME},
+    services::volume::get_current_volume,
+};
+use midi::MidiIncomingMessage;
+use services::{track, volume};
+use utils::coord_to_note;
 
 mod midi;
-
-// 11-88 are the "id's" of the keys on the launchpad.
+mod services;
+mod utils;
 
 /*
-RULES --
+Key Mapping
+    bit 1 == section
+    bit 2 == note/button
+    bit 3 == velocity
 
-Any live cell with fewer than two live neighbours dies, as if by underpopulation.
-Any live cell with two or three live neighbours lives on to the next generation.
-Any live cell with more than three live neighbours dies, as if by overpopulation.
-Any dead cell with exactly three live neighbours becomes a live cell, as if by reproduction.
+Sections
+    176 == Top row
+    144 == Everything but top row
+
+Notes/Buttons
+    Contained within section: 176
+        104-111
+    Contained within section: 144
+        11-89
 */
 
-struct Conway {
-    pub running: bool,
-    pub board: Vec<Vec<u8>>,
+const CONTROL_SECTION: u8 = 176;
+const MAIN_SECTION: u8 = 144;
+const BUTTON_UP_VELOCITY: u8 = 0;
+const BUTTON_DOWN_VELOCITY: u8 = 127;
+
+// CONTROL SECTION NOTES
+
+const NUDGE_UP_NOTE: u8 = 104;
+const NUDGE_DOWN_NOTE: u8 = 105;
+const PREVIOUS_TRACK_NOTE: u8 = 106;
+const NEXT_TRACK_NOTE: u8 = 107;
+
+// MAIN SECTION NOTES
+
+const STOP_NOTE: u8 = 49;
+const MUTE_NOTE: u8 = 39;
+
+#[derive(Debug)]
+enum HandleMessageError {
+    UnboundInput,
 }
 
-impl Conway {
-    pub fn new(x_size: u8, y_size: u8) -> Conway {
-        let mut board: Vec<Vec<u8>> = Vec::new();
-
-        for _ in 0..x_size {
-            let mut row: Vec<u8> = Vec::new();
-            for _ in 0..y_size {
-                row.push(0);
-            }
-            board.push(row);
+fn handle_control_message(message: MidiIncomingMessage) -> Result<(), HandleMessageError> {
+    match message.data[1] {
+        NUDGE_UP_NOTE => {
+            volume::nudge(1, true);
         }
-
-        return Conway {
-            running: false,
-            board: board,
-        };
-    }
-
-    pub fn tick(&mut self) {
-        for x in 0..self.board.len() {
-            for y in 0..self.board[x].len() {
-                let neighbor_count = self.check_neighbors(y, x);
-                let is_alive = self.board[x][y] == 1;
-
-                if !is_alive && neighbor_count == 3 {
-                    self.board[x][y] = 1;
-                    continue;
-                }
-                if is_alive && neighbor_count != 2 && neighbor_count != 3 {
-                    self.board[x][y] = 0;
-                }
-            }
+        NUDGE_DOWN_NOTE => {
+            volume::nudge(1, false);
         }
-    }
-
-    // THIS ISN'T RIGHT AT ALL LOL
-    pub fn check_neighbors(&self, x: usize, y: usize) -> u8 {
-        let mut neighbor_count = 0;
-
-        for x_offset in -1..2 {
-            for y_offset in -1..2 {
-                if x_offset == 0 && y_offset == 0 {
-                    continue;
-                }
-                let final_x: isize = x as isize + x_offset;
-                let final_y: isize = y as isize + y_offset;
-                if final_x < 0 {
-                    continue;
-                }
-                if final_y < 0 {
-                    continue;
-                }
-                if final_x > self.board.len() as isize - 1 {
-                    continue;
-                }
-                if final_y > self.board[0].len() as isize - 1 {
-                    continue;
-                }
-
-                if self.board[final_x as usize][final_y as usize] == 1 {
-                    neighbor_count += 1;
-                }
-            }
+        PREVIOUS_TRACK_NOTE => {
+            track::previous();
         }
-
-        return neighbor_count;
-    }
-
-    pub fn toggle_cell_state(&mut self, x: u8, y: u8) {
-        if self.board[x as usize][y as usize] == 0 {
-            self.set_cell_state(x, y, true);
-            return;
+        NEXT_TRACK_NOTE => {
+            track::next();
         }
-        self.set_cell_state(x, y, false);
-    }
-
-    pub fn set_cell_state(&mut self, x: u8, y: u8, is_alive: bool) {
-        let mut new_cell_state = 0;
-        if is_alive {
-            new_cell_state = 1;
+        _ => {
+            return Err(HandleMessageError::UnboundInput);
         }
-        self.board[x as usize][y as usize] = new_cell_state;
-    }
+    };
+
+    return Ok(());
+}
+fn handle_main_message(message: MidiIncomingMessage) -> Result<(), HandleMessageError> {
+    match message.data[1] {
+        STOP_NOTE => {
+            track::toggle_play_state();
+        }
+        MUTE_NOTE => {
+            volume::set_volume(0);
+        }
+        _ => {
+            return Err(HandleMessageError::UnboundInput);
+        }
+    };
+    return Ok(());
 }
 
-fn draw_conway_to_midi(midi: &mut Midi, conway: &mut Conway) {
-    for x in 0..conway.board.len() {
-        for y in 0..conway.board[x].len() {
-            let is_alive = conway.board[x][y] == 1;
-            let note = coord_to_note(
-                conway.board.len() as u8,
-                conway.board.len() as u8,
-                x as u8,
-                y as u8,
-            );
+fn handle_message(message: MidiIncomingMessage) -> Result<(), HandleMessageError> {
+    if message.data[2] == BUTTON_UP_VELOCITY {
+        return Ok(());
+    }
 
-            if is_alive {
-                midi.send(MidiControlMessage::LED_ON(note, 100));
-            } else {
-                midi.send(MidiControlMessage::LED_OFF(note, 0));
-            }
+    let handle_result = match message.data[0] {
+        CONTROL_SECTION => handle_control_message(message),
+        MAIN_SECTION => handle_main_message(message),
+        _ => Err(HandleMessageError::UnboundInput),
+    };
+
+    return handle_result;
+}
+
+pub fn paint(midi: &mut Midi, delta_t: u128) {
+    let (left, right) = get_current_volume();
+    for y in 0..8 {
+        let r_val = left / 10;
+        if y < r_val {
+            midi.send(MidiControlMessage::LED_ON(coord_to_note(9, 8, 0, y), 2));
+        } else {
+            midi.send(MidiControlMessage::LED_OFF(coord_to_note(9, 8, 0, y)));
         }
     }
-}
-
-fn coord_to_note(x_dimen: u8, y_dimen: u8, x: u8, y: u8) -> u8 {
-    let mut out = 0x0b;
-    out += x;
-    // you add y here because the guy at novation decided
-    // each row of buttons should be offset from the last a single extra note.
-    // i.e. the right most button of the bottom row on the pad has the id 9,
-    // the left most button of the second to bottom row on the pad has the id 11
-    // when we would otherwise expect 10
-    out += y;
-    out += y * x_dimen;
-    return out;
-}
-
-fn note_to_coord(note: u8, x_dimen: usize, y_dimen: usize) -> (u8, u8) {
-    let mut base_note = note - 0x0b;
-    let mut cols = 0;
-    while base_note > x_dimen as u8 {
-        base_note -= x_dimen as u8;
-        base_note -= 1;
-        cols += 1;
+    for y in 0..8 {
+        let r_val = right / 10;
+        if y < r_val {
+            midi.send(MidiControlMessage::LED_ON(coord_to_note(9, 8, 1, y), right));
+        } else {
+            midi.send(MidiControlMessage::LED_OFF(coord_to_note(9, 8, 1, y)));
+        }
     }
-    // println!("X: {}, Y: {}", base_note, cols);
-    return (base_note, cols);
 }
 
 fn main() {
@@ -154,44 +125,23 @@ fn main() {
         println!("Failed to initialize midi");
         return;
     }
-
     let mut midi = midi.unwrap();
-    let mut conway = Conway::new(9, 8);
-    draw_conway_to_midi(&mut midi, &mut conway);
 
+    let mut start_time = std::time::SystemTime::now();
     loop {
-        if conway.running {
-            conway.tick();
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        }
-
-        draw_conway_to_midi(&mut midi, &mut conway);
-
-        let res = midi.incoming.try_recv();
-        if let Err(_) = res {
-            continue;
-        }
-        let res = res.unwrap();
-
-        // is state control button
-        if res.data[0] == 176 {
-            if res.data[1] == 104 {
-                conway.running = true;
+        let recv_res = midi.incoming.try_recv();
+        if let Ok(message) = recv_res {
+            let res = handle_message(message);
+            if let Err(e) = res {
+                println!("Encountered error while handling message: {:?}", e);
             }
-            if res.data[1] == 105 {
-                break;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(100));
-            continue;
         }
 
-        if res.data[2] == 0 {
-            continue;
-        }
-        // is cell button
-        let coord = note_to_coord(res.data[1], conway.board.len(), conway.board[0].len());
-        conway.toggle_cell_state(coord.0, coord.1);
+        std::thread::sleep(std::time::Duration::from_millis(50));
+        let current_time = std::time::SystemTime::now();
+        let delta_time = current_time.duration_since(start_time).unwrap().as_millis();
+        start_time = current_time;
+
+        paint(&mut midi, delta_time);
     }
-
-    println!("Thanks for playing!");
 }
