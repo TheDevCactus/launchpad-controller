@@ -1,2 +1,6 @@
+WIP.
 
-1235:0069
+# Future Features
+
+Config driven
+Scripting integration. maybe lua.
