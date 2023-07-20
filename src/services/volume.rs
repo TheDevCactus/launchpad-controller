@@ -9,7 +9,7 @@ pub fn get_current_volume() -> (u8, u8) {
         .output()
         .unwrap();
     let volume_output = String::from_utf8_lossy(volume.stdout.as_slice());
-    let volume_output: Vec<&str> = volume_output.split("\n").collect();
+    let volume_output: Vec<&str> = volume_output.split('\n').collect();
     let left = volume_output[5];
     let right = volume_output[6];
     let left = reg.find(left).unwrap();
@@ -18,8 +18,8 @@ pub fn get_current_volume() -> (u8, u8) {
     let mut right = right.as_str();
     left = left.trim_end_matches("%]");
     right = right.trim_end_matches("%]");
-    left = left.trim_start_matches("[");
-    right = right.trim_start_matches("[");
+    left = left.trim_start_matches('[');
+    right = right.trim_start_matches('[');
     let parse_result = left.parse::<u8>();
     if let Err(_e) = parse_result {
         return (0, 0);
@@ -32,7 +32,7 @@ pub fn get_current_volume() -> (u8, u8) {
     }
     let right = parse_result.unwrap();
 
-    return (left, right);
+    (left, right)
 }
 
 pub fn set_volume(new_value: u8) {

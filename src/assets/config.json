@@ -1,0 +1,45 @@
+{
+  "name": "Morgans Linux Config",
+  "controls": [
+    {
+      "name": "Volume Level",
+      "type": "Fader",
+      "script": "./volume_control"
+    },
+    {
+      "name": "Nudge Volume Up",
+      "type": "Button",
+      "script": "./volume_control +5%"
+    },
+    {
+      "name": "Nudge Volume Down",
+      "type": "Button",
+      "script": "./volume_control -5%"
+    },
+    {
+      "name": "Previous Track",
+      "type": "Button",
+      "script": "./track_control back"
+    },
+    {
+      "name": "Next Track",
+      "type": "Button",
+      "script": "./track_control next"
+    },
+    {
+      "name": "Toggle Play State",
+      "type": "Button",
+      "script": "./track_control toggle_play_state"
+    },
+    {
+      "name": "Mute",
+      "type": "Button",
+      "script": "./track_control mute"
+    },
+    {
+      "name": "Loop",
+      "type": "Button",
+      "script": "./track_control loop"
+    }
+  ]
+}

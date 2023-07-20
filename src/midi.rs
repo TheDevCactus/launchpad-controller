@@ -7,13 +7,90 @@ pub const MIDI_NAME: &str = "Launchpad MK2:Launchpad MK2 MIDI 1 20:0";
 pub const IN_PORT_NAME: &str = "port_in_midi_thing";
 pub const OUT_PORT_NAME: &str = "port_out_midi_thing";
 
-pub const NOTE_OFF: u8 = 0b10000000;
-pub const NOTE_ON: u8 = 0b10010000;
+pub const LED_SECTION: u8 = 0b10010000;
+pub const CONTROL_SECTION: u8 = 176;
+
+#[derive(Debug)]
+pub enum Colors {
+    Off,
+    Green,
+    Blue,
+    Red,
+    Purple,
+}
+
+#[derive(Debug)]
+pub enum Brightness {
+    Low,
+    Medium,
+    High,
+}
+
+impl From<u8> for Brightness {
+    fn from(x: u8) -> Self {
+        if x <= 3 {
+            return Brightness::Low;
+        }
+        if x >= 7 {
+            return Brightness::High;
+        }
+        return Brightness::Medium;
+    }
+}
+
+#[derive(Debug)]
+pub struct Color {
+    color: Colors,
+    brightness: Brightness,
+}
+
+impl Color {
+    pub fn new(color: Colors, brightness: Brightness) -> Self {
+        Color {
+            color: color,
+            brightness: brightness,
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum MidiControlMessage {
-    LED_ON(u8, u8),
+    CONTROL_LED_ON(u8, Color),
+    CONTROL_LED_OFF(u8),
+    LED_ON(u8, Color),
     LED_OFF(u8),
+}
+
+impl Into<u8> for Color {
+    fn into(self) -> u8 {
+        match self.color {
+            Colors::Blue => match self.brightness {
+                Brightness::High => 41,
+                Brightness::Low => 42,
+                Brightness::Medium => 40,
+            },
+            Colors::Green => match self.brightness {
+                Brightness::High => 17,
+                Brightness::Low => 16,
+                Brightness::Medium => 18,
+            },
+            Colors::Off => match self.brightness {
+                Brightness::High => 0,
+                Brightness::Low => 0,
+                Brightness::Medium => 0,
+            },
+            Colors::Purple => match self.brightness {
+                Brightness::High => 49,
+                Brightness::Low => 50,
+                Brightness::Medium => 48,
+            },
+            Colors::Red => match self.brightness {
+                Brightness::High => 5,
+                Brightness::Low => 6,
+                Brightness::Medium => 60,
+            },
+        }
+    }
 }
 
 pub struct MidiIncomingMessage {
@@ -51,25 +128,25 @@ impl Midi {
 
         let input_port = input_ports.iter().find(|port| {
             let port_name = midi_in.port_name(port);
-            if let Err(_) = port_name {
+            if port_name.is_err() {
                 return false;
             }
             let port_name = port_name.unwrap();
-            return port_name == device_name;
+            port_name == device_name
         });
         let output_port = output_ports.iter().find(|port| {
             let port_name = midi_out.port_name(port);
-            if let Err(_) = port_name {
+            if port_name.is_err() {
                 return false;
             }
             let port_name = port_name.unwrap();
-            return port_name == device_name;
+            port_name == device_name
         });
 
-        if let None = input_port {
+        if input_port.is_none() {
             return Err(());
         }
-        if let None = output_port {
+        if output_port.is_none() {
             return Err(());
         }
 
@@ -84,7 +161,7 @@ impl Midi {
                 #[cfg(debug_assertions)]
                 println!("----\nReceived Message\nSection: {:?}\nNote/Button: {:?}\nVelocity: {:?}\n----", msg[0], msg[1], msg[2]);
 
-                channel.0.send(MidiIncomingMessage {
+                let _ = channel.0.send(MidiIncomingMessage {
                     time: stamp,
                     data: [msg[0], msg[1], msg[2]],
                 });
@@ -102,23 +179,28 @@ impl Midi {
         }
         let output_connection = output_connection_result.unwrap();
 
-        return Ok(Midi {
+        Ok(Midi {
             in_connection: input_connection,
             out_connection: output_connection,
             incoming: channel.1,
-        });
+        })
     }
 
     pub fn send(&mut self, msg: MidiControlMessage) {
         match msg {
-            MidiControlMessage::LED_ON(note, vel) => {
-                let _ = self.out_connection.send(&[NOTE_ON, note, vel]);
+            MidiControlMessage::CONTROL_LED_OFF(note) => {
+                let _ = self.out_connection.send(&[CONTROL_SECTION, note, 0]);
+            }
+            MidiControlMessage::CONTROL_LED_ON(note, color) => {
+                let _ = self
+                    .out_connection
+                    .send(&[CONTROL_SECTION, note, color.into()]);
+            }
+            MidiControlMessage::LED_ON(note, color) => {
+                let _ = self.out_connection.send(&[LED_SECTION, note, color.into()]);
             }
             MidiControlMessage::LED_OFF(note) => {
-                let _ = self.out_connection.send(&[NOTE_ON, note, 0]);
-            }
-            _ => {
-                let _ = self.out_connection.send(&[NOTE_OFF, 0x0b, 0x7f]);
+                let _ = self.out_connection.send(&[LED_SECTION, note, 0]);
             }
         };
     }
